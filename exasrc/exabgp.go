@@ -16,7 +16,7 @@ func MessageHandler() {
 		if len(msg) > 0 {
 			log.Debug(msg)
 			if msg != "done" && msg != "error" {
-				processMessage(msg)
+				processMessage(&msg)
 			}
 		}
 	}
@@ -27,42 +27,41 @@ func MessageHandler() {
 
 }
 
-func processMessage(msg string) {
+func processMessage(msg *string) {
 
 	var event Event
-	err := json.Unmarshal([]byte(msg), &event)
+	err := json.Unmarshal([]byte(*msg), &event)
 	if err != nil {
 		log.Error(err)
 		return
 	}
 
-	respondCommand(event, neighbor)
+	respondCommand(event)
 }
 
-func respondCommand(event Event, neighbor string) {
+func respondCommand(event Event) {
 	log.Debugf("%+v", event)
 	// Make announce
 	for nexthop, announces := range event.Neighbor.Message.Update.Announce.IPv4Unicast {
 		for _, announce := range announces {
 
-			asPath := birdHandler(announce.NLRI)
-			if len(asPath) > 0 {
-				var communities []string
-				for _, cmt := range event.Neighbor.Message.Update.Attribute.Community {
-					communities = append(communities, fmt.Sprintf("%d:%d", cmt[0], cmt[1]))
-				}
+			asPath := birdHandler(&announce.NLRI)
 
-				announceCmd := fmt.Sprintf("neighbor %s announce route %s next-hop %s community %v local-preference %d as-path %v",
-					neighbor,
-					announce.NLRI,
-					nexthop,
-					communities,
-					event.Neighbor.Message.Update.Attribute.LocalPreference,
-					asPath,
-				)
-				fmt.Println(announceCmd)
-				log.Info(announceCmd)
+			var communities []string
+			for _, cmt := range event.Neighbor.Message.Update.Attribute.Community {
+				communities = append(communities, fmt.Sprintf("%d:%d", cmt[0], cmt[1]))
 			}
+
+			announceCmd := fmt.Sprintf("neighbor %s announce route %s next-hop %s community %v local-preference %d as-path %v",
+				neighbor,
+				announce.NLRI,
+				nexthop,
+				communities,
+				event.Neighbor.Message.Update.Attribute.LocalPreference,
+				asPath,
+			)
+			fmt.Println(announceCmd)
+			log.Info(announceCmd)
 		}
 	}
 

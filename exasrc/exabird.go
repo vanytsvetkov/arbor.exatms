@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-func birdHandler(prefix string) []string {
+func birdHandler(prefix *string) []string {
 	socket := "/var/run/bird/bird.ctl"
 
-	routeB, err := birdsocket.Query(socket, fmt.Sprintf("show route for %s primary all", prefix))
+	routeB, err := birdsocket.Query(socket, fmt.Sprintf("show route for %v primary all", *prefix))
 	if err != nil {
 		log.Error(err)
-		return []string{}
+		return []string{defaultASN}
 	}
 	route := string(routeB)
 	log.Debugf("%s", route)
@@ -28,7 +28,7 @@ func birdHandler(prefix string) []string {
 		//log.Debugf("as_path: %s", group)
 		return strings.Split(group, " ")
 	} else {
-		return []string{}
+		return []string{defaultASN}
 	}
 
 }
