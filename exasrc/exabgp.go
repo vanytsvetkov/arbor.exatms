@@ -6,9 +6,51 @@ import (
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
+	"time"
 )
 
+type HoldTimer struct {
+	Current time.Duration
+	Max     time.Duration
+}
+
+var (
+	HoldTime = HoldTimer{
+		Current: time.Second * 180,
+		Max:     time.Second * 180,
+	}
+	RIB = make(map[string]bool)
+)
+
+func heartBeat() {
+	for range time.Tick(time.Second * 1) {
+		HoldTime.Current -= time.Second * 1
+		log.Debugf("Hold timer eq. %v", HoldTime.Current)
+		if HoldTime.Current <= 0 {
+			log.Info("Hold Time Exceeded. Withdrawing all!")
+			withdrawAll()
+			HoldTime.Current = HoldTime.Max
+		}
+	}
+}
+
+func withdrawAll() {
+	log.Debugf("my RIB is %v", RIB)
+	for pfx := range RIB {
+		withdrawCmd := fmt.Sprintf("neighbor %s withdraw route %s",
+			neighbor,
+			pfx,
+		)
+		fmt.Println(withdrawCmd)
+		log.Info(withdrawCmd)
+	}
+
+	RIB = make(map[string]bool)
+}
+
 func MessageHandler() {
+
+	go heartBeat()
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
@@ -36,11 +78,20 @@ func processMessage(msg *string) {
 		return
 	}
 
-	respondCommand(event)
+	if event.Type == "keepalive" {
+		processKeepAlive()
+	} else if event.Type == "update" {
+		processUpdate(event)
+	}
 }
 
-func respondCommand(event Event) {
-	log.Debugf("%+v", event)
+func processKeepAlive() {
+	HoldTime.Current = HoldTime.Max
+	log.Debugf("Get Keepalive, set Hold Timer eq. %v", HoldTime.Max)
+}
+
+func processUpdate(event Event) {
+
 	// Make announce
 	for nexthop, announces := range event.Neighbor.Message.Update.Announce.IPv4Unicast {
 		for _, announce := range announces {
@@ -62,6 +113,8 @@ func respondCommand(event Event) {
 			)
 			fmt.Println(announceCmd)
 			log.Info(announceCmd)
+			RIB[announce.NLRI] = true
+			log.Debugf("RIB is %v", RIB)
 		}
 	}
 
@@ -73,6 +126,8 @@ func respondCommand(event Event) {
 		)
 		fmt.Println(withdrawCmd)
 		log.Info(withdrawCmd)
+		delete(RIB, withdraw.NLRI)
+		log.Debugf("RIB is %v", RIB)
 	}
 
 }

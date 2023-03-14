@@ -42,7 +42,7 @@ $ tail -f /var/log/exabgp/exatms.log
 Below is an example **exabgp's** configuration file:
 ```shell
 process exatms {
-    run /etc/exabgp/exatms --neighbor "127.0.0.1" --peer_as "65500" --loglevel "INFO" --logfile "/var/log/exabgp/exatms.log";
+    run /etc/exabgp/exatms/exatms --neighbor "127.0.0.1" --peer_as "65500" --loglevel "INFO" --logfile "/var/log/exabgp/exatms.log";
     encoder json;
 }
 
@@ -52,7 +52,7 @@ neighbor 172.16.0.2 {
 	router-id 172.16.0.1;
 	local-as 65500;
 	local-address 172.16.0.1;
-	peer-as 65501;
+	peer-as 65500;
     
         auto-flush true;
         capability {
@@ -68,6 +68,7 @@ neighbor 172.16.0.2 {
               receive {
                 parsed;
                 update;
+                keepalive;
               }
         }
 }
@@ -92,6 +93,8 @@ neighbor 127.0.0.1 {
 ```
 And the obvious part of the BGP session configuration between **exabgp** and **BIRD**:
 ```shell
+ipv4 table T_as65500_exaTMS;
+
 protocol bgp as65500_exaTMS {
         description "exaTMS";
         local as 65500;
