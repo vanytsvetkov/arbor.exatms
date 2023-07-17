@@ -24,12 +24,13 @@ var (
 
 func heartBeat() {
 	for range time.Tick(time.Second * 1) {
-		HoldTime.Current -= time.Second * 1
-		log.Debugf("Hold timer eq. %v", HoldTime.Current)
-		if HoldTime.Current <= 0 {
+		if HoldTime.Current > 0 {
+			HoldTime.Current -= time.Second * 1
+			log.Debugf("Hold timer eq. %v", HoldTime.Current)
+		} else if HoldTime.Current <= 0 && len(RIB) > 0 {
 			log.Info("Hold Time Exceeded. Withdrawing all!")
 			withdrawAll()
-			HoldTime.Current = HoldTime.Max
+			HoldTime.Current = 0
 		}
 	}
 }
@@ -87,10 +88,13 @@ func processMessage(msg *string) {
 
 func processKeepAlive() {
 	HoldTime.Current = HoldTime.Max
-	log.Debugf("Get Keepalive, set Hold Timer eq. %v", HoldTime.Max)
+	log.Debugf("Got KEEPALIVE, set Hold Timer eq. %v", HoldTime.Max)
 }
 
 func processUpdate(event Event) {
+
+	HoldTime.Current = HoldTime.Max
+	log.Debugf("Got UPDATE, set Hold Timer eq. %v", HoldTime.Max)
 
 	// Make announce
 	for nexthop, announces := range event.Neighbor.Message.Update.Announce.IPv4Unicast {
